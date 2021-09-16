@@ -33,11 +33,11 @@ error() {
 
 choose_database_and_do() {
     echo $ANSI_BOLD "Seleccionar base de datos:" $ANSI_RESET
-    psql -l -A -t|cut -d'|' -f1|nl
+    sudo -u $ADMIN_USER psql -l -A -t|cut -d'|' -f1|nl
     read -p "Opción> " n
 
     test "$n" -gt 0 || return 1
-    bd=$(psql -l -A -t|cut -d'|' -f1|head -n $n|tail -n 1)
+    bd=$(sudo -u $ADMIN_USER psql -l -A -t|cut -d'|' -f1|head -n $n|tail -n 1)
     test -n "$bd" || return 2
 
     eval "$* $bd"
@@ -159,5 +159,5 @@ main_menu() {
     done
 }
 
-
+sudo -u $ADMIN_USER true
 main_menu 
