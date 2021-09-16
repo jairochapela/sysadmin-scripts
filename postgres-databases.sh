@@ -25,7 +25,7 @@ message() {
 
 error() {
     echo $ANSI_RED
-    cowsay -e xx $* || echo "ERROR: $*"
+    command -v cowsay >/dev/null && cowsay -e xx $* || echo "ERROR: $*"
     echo $ANSI_RESET
     return 1
 }
