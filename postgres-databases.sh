@@ -64,6 +64,12 @@ new_database() {
 }
 
 
+new_user() {
+    sudo -u $ADMIN_USER createuser --interactive && \
+        message "Usuario creado" || \
+        error "Error creando usuario"
+}
+
 grant_user() {
     dbname="$1"
     defaultuser=$(whoami)
@@ -71,6 +77,12 @@ grant_user() {
     sudo -u $ADMIN_USER psql -c "GRANT ALL PRIVILEGES ON DATABASE \"$dbname\" TO \"$username\""  && \
         message "Privilegios concedidos al usuario $username sobre la base de datos $dbname" || \
         error "Error otorgando privilegios"
+}
+
+
+sql_shell() {
+    dbname="$1"
+    sudo -u $ADMIN_USER psql $dbname
 }
 
 _dup_database() {
@@ -111,7 +123,8 @@ main_menu() {
 
         echo $ANSI_BOLD"\nSelecciona una opción:\n"$ANSI_RESET
         echo "new\t- Crear base de datos"
-        echo "g\t- Autorizar usuario"
+	echo "user\t- Crear usuario"
+        echo "grant\t- Autorizar usuario"
         echo "sql\t- Shell SQL"
         echo "dup\t- Duplicar base de datos"
         echo "bk\t- Volcado SQL de base de datos"
@@ -124,13 +137,17 @@ main_menu() {
             heading "Crear base de datos"
             new_database
             ;;
-            g)
+	    user)
+	    heading "Crear usuario"
+	    new_user
+            ;;
+            grant)
             heading "Autorizar usuario"
             choose_database_and_do grant_user
             ;;
             sql)
             heading "Shell SQL"
-            choose_database_and_do psql
+            choose_database_and_do sql_shell
             ;;
             dup)
             heading "Duplicar base de datos"
