@@ -13,13 +13,13 @@ ANSI_YELLOW="\033[33m"
 heading() {
     clear
     echo $ANSI_GREEN $ANSI_BOLD
-    figlet $* || echo $*
+    command -v figlet >/dev/null && figlet -w `tput cols` $* || echo $*
     echo $ANSI_RESET
 }
 
 message() {
     echo $ANSI_YELLOW
-    cowsay $* || echo $*
+    command -v cowsay >/dev/null && cowsay $* || echo $*
     echo $ANSI_RESET
 }
 
