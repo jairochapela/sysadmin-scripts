@@ -80,6 +80,11 @@ grant_user() {
 }
 
 
+ls_databases() {
+    sudo -u $ADMIN_USER psql -l|more
+}
+
+
 sql_shell() {
     dbname="$1"
     sudo -u $ADMIN_USER psql $dbname
@@ -125,6 +130,7 @@ main_menu() {
         echo "new\t- Crear base de datos"
 	echo "user\t- Crear usuario"
         echo "grant\t- Autorizar usuario"
+	echo "ls\t- Listar bases de datos"
         echo "sql\t- Shell SQL"
         echo "dup\t- Duplicar base de datos"
         echo "bk\t- Volcado SQL de base de datos"
@@ -145,6 +151,10 @@ main_menu() {
             heading "Autorizar usuario"
             choose_database_and_do grant_user
             ;;
+	    ls)
+	    heading "Bases de datos"
+	    ls_databases
+	    ;;
             sql)
             heading "Shell SQL"
             choose_database_and_do sql_shell
