@@ -172,6 +172,44 @@ edit_group_vars() {
 }
 
 
+manage_roles() {
+    fname="$DATADIR/roles/requeriments.yml"
+    [ -f "$fname" ] || echo "
+## from galaxy
+#- src: yatesr.timezone
+
+## from GitHub
+#- src: https://github.com/bennojoy/nginx
+
+## from GitHub, overriding the name and specifying a specific tag
+#- src: https://github.com/bennojoy/nginx
+#  version: master
+#  name: nginx_role
+
+## from a webserver, where the role is packaged in a tar.gz
+#- src: https://some.webserver.example.com/files/master.tar.gz
+#  name: http-role
+
+## from Bitbucket
+#- src: git+http://bitbucket.org/willthames/git-ansible-galaxy
+#  version: v1.4
+
+## from Bitbucket, alternative syntax and caveats
+#- src: http://bitbucket.org/willthames/hg-ansible-galaxy
+#  scm: hg
+
+## from GitLab or other git-based scm
+#- src: git@gitlab.company.com:mygroup/ansible-base.git
+#  scm: git
+#  version: "0.1"  # quoted, so YAML doesn't parse this as a floating-point value
+
+# Más información: https://galaxy.ansible.com/docs/using/installing.html
+" > "$fname"
+    heading "Instalando roles requeridos"
+    edit_file "$fname" && ansible-galaxy install -r "$fname"
+}
+
+
 main_menu() {
     while true ; do
         clear
@@ -184,6 +222,7 @@ main_menu() {
         echo -e "i\t- Inventario"
         echo -e "h\t- Variables de host"
         echo -e "g\t- Variables de grupo de hosts"
+	echo -e "r\t- Gestionar roles"
         #echo -e "s\t- Copiar clave SSH"
         echo -e "0\t- Salir"
         read -p "Opción> " op
@@ -196,6 +235,7 @@ main_menu() {
         i) choose_inventory_then edit_file ;;
         h) choose_inventory_then edit_host_vars ;;
         g) choose_inventory_then edit_group_vars ;;
+	r) manage_roles ;;
         0) return ;;
         *) [ -z "$c" ] && show_message "Por favor, indica un comando." || show_error "Comando no reconocido." ;;
         esac
