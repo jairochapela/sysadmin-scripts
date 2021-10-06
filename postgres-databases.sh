@@ -1,7 +1,8 @@
 #!/bin/bash
 
 
-ADMIN_USER=postgres
+ADMIN_USER=root
+PG_USER=postgres
 
 
 ANSI_RESET="\033[0m"
@@ -33,7 +34,7 @@ error() {
 
 choose_database_and_do() {
     echo -e $ANSI_BOLD "Seleccionar base de datos (0 para cancelar):" $ANSI_RESET
-    select bd in $(sudo -u $ADMIN_USER psql -l -A -t|cut -d'|' -f1) ; do
+    select bd in $(sudo -u $ADMIN_USER psql -U $PG_USER -l -A -t|cut -d'|' -f1) ; do
         test -n "$bd" || return 2
         eval "$* $bd"
         return $?
@@ -41,7 +42,7 @@ choose_database_and_do() {
 #    read -p "Opción> " n
 
 #    test "$n" -gt 0 || return 1
-#    bd=$(sudo -u $ADMIN_USER psql -l -A -t|cut -d'|' -f1|head -n $n|tail -n 1)
+#    bd=$(sudo -u $ADMIN_USER psql -U $PG_USER -l -A -t|cut -d'|' -f1|head -n $n|tail -n 1)
 }
 
 
@@ -54,7 +55,7 @@ ask_new_database_name_and_do() {
 _create_database() {
     newdbname="$1"
     echo "Creando base de datos $newdbname..."
-    sudo -u $ADMIN_USER psql -c "CREATE DATABASE $newdbname;" && \
+    sudo -u $ADMIN_USER psql -U $PG_USER -c "CREATE DATABASE $newdbname;" && \
         message "Base de datos $newdbname creada con éxito" || \
         error "Error creando la base de datos $newdbname"
 }
@@ -66,7 +67,7 @@ new_database() {
 
 
 new_user() {
-    sudo -u $ADMIN_USER createuser --interactive && \
+    sudo -u $ADMIN_USER createuser -U $PG_USER --interactive && \
         message "Usuario creado" || \
         error "Error creando usuario"
 }
@@ -75,27 +76,27 @@ grant_user() {
     dbname="$1"
     defaultuser=$(whoami)
     read -p "Usuario a autorizar [$defaultuser]: " username && test -n "$username" || username=$defaultuser
-    sudo -u $ADMIN_USER psql -c "GRANT ALL PRIVILEGES ON DATABASE \"$dbname\" TO \"$username\""  && \
+    sudo -u $ADMIN_USER psql -U $PG_USER -c "GRANT ALL PRIVILEGES ON DATABASE \"$dbname\" TO \"$username\""  && \
         message "Privilegios concedidos al usuario $username sobre la base de datos $dbname" || \
         error "Error otorgando privilegios"
 }
 
 
 ls_databases() {
-    sudo -u $ADMIN_USER psql -l|more
+    sudo -u $ADMIN_USER psql -U $PG_USER -l|more
 }
 
 
 sql_shell() {
     dbname="$1"
-    sudo -u $ADMIN_USER psql $dbname
+    sudo -u $ADMIN_USER psql -U $PG_USER $dbname
 }
 
 _dup_database() {
     dbname="$1"
     newdbname="$2"
     _create_database "$newdbname" && \
-        (sudo -u $ADMIN_USER pg_dump "$dbname" | sudo -u $ADMIN_USER psql "$newdbname") && \
+        (sudo -u $ADMIN_USER pg_dump -U $PG_USER "$dbname" | sudo -u $ADMIN_USER psql -U $PG_USER "$newdbname") && \
         message "Base de datos $dbname duplicada en $newdbname"
 }
 
@@ -109,7 +110,7 @@ dump_database() {
     dbname="$1"
     defaultfname="${dbname}_`date +%Y-%m-%d_%H%M`.sql"
     read -p "Nombre del fichero de salida [$defaultfname]: " sqlfile && test -n "$sqlfile" || sqlfile="$defaultfname"
-    pg_dump $dbname > $sqlfile && \
+    pg_dump -U $PG_USER $dbname > $sqlfile && \
         message "Base de datos $dbname volcada en $sqlfile" && stat $sqlfile || \
         error "Error volcando la base de datos $dbname"
 }
@@ -128,7 +129,7 @@ remove_database() {
     dbname="$1"
     message "Se va a eliminar la base de datos $dbname. ¿Estás completamente seguro?"
     read -p "Escribe $dbname para confirmar la operación: " confirm && test "$dbname" = "$confirm" || return 1
-    sudo -u $ADMIN_USER psql -c "DROP DATABASE $dbname" && \
+    sudo -u $ADMIN_USER psql -U $PG_USER -c "DROP DATABASE $dbname" && \
         message "Base de datos $dbname eliminada con éxito" || \
         error "Error eliminando la base de datos $dbname"
 }
