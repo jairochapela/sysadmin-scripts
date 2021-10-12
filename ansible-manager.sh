@@ -31,8 +31,8 @@ setup() {
 check_vault_password_file() {
     [ -f $VAULT_PASSWD_FILE ] && return
     read -s -p "Vault password: " vault_password
-    echo -n "$vault_password" > $VAULT_PASSWD_FILE
-    chmod 600 $VAULT_PASSWD_FILE    
+    echo -n "$vault_password" > "$VAULT_PASSWD_FILE"
+    chmod 600 "$VAULT_PASSWD_FILE"    
 }
 
 title() {
@@ -63,7 +63,7 @@ edit_file() {
 edit_vault_file() {
     vaultfile=$1
     check_vault_password_file
-    [ -f $vaultfile ] && ansible-vault --vault-password-file $VAULT_PASSWD_FILE edit $vaultfile || ansible-vault --vault-password-file $VAULT_PASSWD_FILE create $vaultfile
+    [ -f $vaultfile ] && ANSIBLE_VAULT_PASSWORD_FILE="$VAULT_PASSWD_FILE" ansible-vault edit $vaultfile || ANSIBLE_VAULT_PASSWORD_FILE="$VAULT_PASSWD_FILE" ansible-vault create $vaultfile
     return $?
 }
 
@@ -96,7 +96,7 @@ run_playbook() {
     playbook=$1
     inventory=$2
     check_vault_password_file
-    ansible-playbook --vault-password-file $VAULT_PASSWD_FILE -i $inventory $playbook
+    ANSIBLE_VAULT_PASSWORD_FILE="$VAULT_PASSWD_FILE" ansible-playbook -i $inventory $playbook
 }
 
 
@@ -255,3 +255,5 @@ setup
 main_menu
 
 rm -f $VAULT_PASSWD_FILE
+
+show_message "Bye!"
