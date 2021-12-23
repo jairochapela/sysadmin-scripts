@@ -2,6 +2,7 @@
 
 
 ADMIN_USER=root
+DB_HOST=localhost
 
 
 ANSI_RESET="\033[0m"
@@ -33,7 +34,7 @@ error() {
 
 choose_database_and_do() {
     echo -e $ANSI_BOLD "Seleccionar base de datos (0 para cancelar):" $ANSI_RESET
-    select bd in $(echo "SHOW DATABASES" |sudo -u $ADMIN_USER mysql -r -B -s -h 127.0.0.1) ; do
+    select bd in $(echo "SHOW DATABASES" |sudo -u $ADMIN_USER mysql -r -B -s -h $DB_HOST) ; do
         test -n "$bd" || return 2
         eval "$* $bd"
         return $?
@@ -54,7 +55,7 @@ ask_new_database_name_and_do() {
 _create_database() {
     newdbname="$1"
     echo "Creando base de datos $newdbname..."
-    echo "CREATE DATABASE $newdbname;" |sudo -u $ADMIN_USER mysql -h 127.0.0.1 && \
+    echo "CREATE DATABASE $newdbname;" |sudo -u $ADMIN_USER mysql -h $DB_HOST && \
         message "Base de datos $newdbname creada con éxito" || \
         error "Error creando la base de datos $newdbname"
 }
@@ -75,7 +76,7 @@ new_user() {
 	error "Las contraseñas no coinciden"
 	return -2
     fi
-    echo -e "CREATE USER '$username'@'localhost' IDENTIFIED BY '$password'" |sudo -u $ADMIN_USER mysql -h 127.0.0.1 && \
+    echo -e "CREATE USER '$username'@'localhost' IDENTIFIED BY '$password'" |sudo -u $ADMIN_USER mysql -h $DB_HOST && \
         message "Usuario creado" || \
         error "Error creando usuario"
 }
@@ -84,20 +85,20 @@ grant_user() {
     dbname="$1"
     defaultuser=$(whoami)
     read -p "Usuario a autorizar [$defaultuser]: " username && test -n "$username" || username=$defaultuser
-    echo -e "GRANT ALL PRIVILEGES ON $dbname.* TO '$username'@'localhost'; FLUSH PRIVILEGES;" |sudo -u $ADMIN_USER mysql -h 127.0.0.1 && \
+    echo -e "GRANT ALL PRIVILEGES ON $dbname.* TO '$username'@'localhost'; FLUSH PRIVILEGES;" |sudo -u $ADMIN_USER mysql -h $DB_HOST && \
         message "Privilegios concedidos al usuario $username sobre la base de datos $dbname" || \
         error "Error otorgando privilegios"
 }
 
 
 ls_databases() {
-    sudo -u $ADMIN_USER mysqlshow -h 127.0.0.1|more
+    sudo -u $ADMIN_USER mysqlshow -h $DB_HOST|more
 }
 
 
 sql_shell() {
     dbname="$1"
-    sudo -u $ADMIN_USER mysql -h 127.0.0.1 $dbname
+    sudo -u $ADMIN_USER mysql -h $DB_HOST $dbname
 }
 
 _dup_database() {
@@ -118,7 +119,7 @@ dump_database() {
     dbname="$1"
     defaultfname="${dbname}_`date +%Y-%m-%d_%H%M`.sql"
     read -p "Nombre del fichero de salida [$defaultfname]: " sqlfile && test -n "$sqlfile" || sqlfile="$defaultfname"
-    sudo mysqldump -h 127.0.0.1 $dbname > $sqlfile && \
+    sudo mysqldump -h $DB_HOST $dbname > $sqlfile && \
         message "Base de datos $dbname volcada en $sqlfile" && stat $sqlfile || \
         error "Error volcando la base de datos $dbname"
 }
@@ -128,7 +129,7 @@ restore_database() {
     dbname="$1"
     read -e -p "Nombre del fichero de entrada: " sqlfile
     test -f "$sqlfile" || error "No existe ese fichero"
-    sudo -u $ADMIN_USER mysql -h 127.0.0.1 "$dbname" < "$sqlfile" && \
+    sudo -u $ADMIN_USER mysql -h $DB_HOST "$dbname" < "$sqlfile" && \
         message "Base de datos $dbname restaurada a partir de $sqlfile" || \
         error "No se pudo restaurar la base de datos $dbname"
 }
@@ -137,7 +138,7 @@ remove_database() {
     dbname="$1"
     message "Se va a eliminar la base de datos $dbname. ¿Estás completamente seguro?"
     read -p "Escribe $dbname para confirmar la operación: " confirm && test "$dbname" = "$confirm" || return 1
-    echo "DROP DATABASE $dbname" |sudo -u $ADMIN_USER mysql -h 127.0.0.1 && \
+    echo "DROP DATABASE $dbname" |sudo -u $ADMIN_USER mysql -h $DB_HOST && \
         message "Base de datos $dbname eliminada con éxito" || \
         error "Error eliminando la base de datos $dbname"
 }

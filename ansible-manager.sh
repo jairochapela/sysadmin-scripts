@@ -118,16 +118,22 @@ ask_new_filename_then() {
 new_playbook() {
     playbookfile="$1"
     read -p "Descripción: " description
-    read -p "Grupo de hosts: " grphosts  
-echo "
+    read -p "Grupo de hosts: " grphosts
+    roles=$(find "$DATADIR/roles" -depth 1 -path '*' -type d |xargs basename) || return 1
+    PS3="Incorporar rol (0 para terminar)> "
+    roles_to_add=""
+    select role in $roles ; do
+        [ $REPLY == 0 ] && break
+        roles_to_add="$roles_to_add\n      - $role"
+        echo -e "Roles seleccionados: $roles_to_add"
+    done
+echo -e "
 ---
   - name: $description
     hosts: $grphosts
     become: yes
     become_user: root
-    roles:
-      - rol1
-      - rol2
+    roles:$roles_to_add
     tasks:
       - name: sample task
         debug:
