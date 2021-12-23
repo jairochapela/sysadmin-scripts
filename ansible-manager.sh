@@ -82,11 +82,11 @@ choose_inventory_then() {
 
 choose_playbook_then() {
     heading "Selecciona un playbook"
-    playbooks=$(find "$DATADIR" -maxdepth 1 -path '*.yml') || return 1
+    playbooks=$(find "$DATADIR" -maxdepth 1 -path '*.yml'|xargs basename) || return 1
     PS3="Playbook (0 para cancelar)> "
     select playbook in $playbooks ; do
         [ $REPLY == 0 ] && return
-        $* $playbook
+        $* "$DATADIR/$playbook"
         [ $? == 0 ] && return
     done
 }
