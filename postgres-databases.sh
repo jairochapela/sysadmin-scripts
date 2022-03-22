@@ -110,7 +110,7 @@ dump_database() {
     dbname="$1"
     defaultfname="${dbname}_`date +%Y-%m-%d_%H%M`.sql"
     read -p "Nombre del fichero de salida [$defaultfname]: " sqlfile && test -n "$sqlfile" || sqlfile="$defaultfname"
-    pg_dump -U $PG_USER $dbname > $sqlfile && \
+    sudo -u $ADMIN_USER pg_dump -U $PG_USER $dbname > $sqlfile && \
         message "Base de datos $dbname volcada en $sqlfile" && stat $sqlfile || \
         error "Error volcando la base de datos $dbname"
 }
