@@ -18,7 +18,7 @@ for db in $* ; do
 	flock -n $lock sudo -u postgres pg_dump "$db" > "$dbbak"
 
 	if [ -f "$dbbak" ] ; then
-		gzip "$dbbak"
+		gzip -f "$dbbak"
 		chmod 600 "$dbbak.gz"
 	else
 		echo "Error creando copia de seguridad."
