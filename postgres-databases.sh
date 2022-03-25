@@ -120,7 +120,7 @@ restore_database() {
     dbname="$1"
     read -e -p "Nombre del fichero de entrada: " sqlfile
     test -f "$sqlfile" || error "No existe ese fichero"
-    sudo -u $ADMIN_USER psql "$dbname" < "$sqlfile" && \
+    sudo -u $ADMIN_USER psql -U $PG_USER "$dbname" < "$sqlfile" && \
         message "Base de datos $dbname restaurada a partir de $sqlfile" || \
         error "No se pudo restaurar la base de datos $dbname"
 }
