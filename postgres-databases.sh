@@ -39,16 +39,12 @@ choose_database_and_do() {
         eval "$* $bd"
         return $?
     done
-#    read -p "Opción> " n
-
-#    test "$n" -gt 0 || return 1
-#    bd=$(sudo -u $ADMIN_USER psql -U $PG_USER -l -A -t|cut -d'|' -f1|head -n $n|tail -n 1)
 }
 
 
 ask_new_database_name_and_do() {
     read -p "Nombre de la nueva base de datos: " bd && test -n "$bd" || return -1
-    eval "$* $bd"
+    eval "$* \"$bd\""
 }
 
 
@@ -67,7 +63,7 @@ new_database() {
 
 
 new_user() {
-    sudo -u $ADMIN_USER createuser -U $PG_USER --interactive && \
+    sudo -u $ADMIN_USER createuser -U $PG_USER --interactive -P && \
         message "Usuario creado" || \
         error "Error creando usuario"
 }
@@ -81,6 +77,31 @@ grant_user() {
         error "Error otorgando privilegios"
 }
 
+ask_password_and_do() {
+    read -sp "Contraseña: " password && test -n "$password" || return -1
+    echo ""
+    read -sp "Repetir contraseña: " repassword && test -n "$repassword" || return -1
+    echo ""
+    if [ "$password" != "$repassword" ] ; then
+        error "Las contraseñas no coinciden"
+        return -2
+    fi
+    eval "$* \"$password\""
+}
+
+_change_passwd() {
+    username="$1"
+    password="$2"
+    sudo -u $ADMIN_USER psql -U $PG_USER -c "ALTER USER \"$username\" WITH PASSWORD '$password'"  && \
+        message "Contraseña de $username modificada" || \
+        error "Error modificando contraseña"
+}
+
+change_password() {
+    defaultuser=$(whoami)
+    read -p "Usuario a autorizar [$defaultuser]: " username && test -n "$username" || username=$defaultuser
+    ask_password_and_do _change_passwd "$username"
+}
 
 ls_databases() {
     sudo -u $ADMIN_USER psql -U $PG_USER -l|more
@@ -89,7 +110,9 @@ ls_databases() {
 
 sql_shell() {
     dbname="$1"
-    sudo -u $ADMIN_USER psql -U $PG_USER $dbname
+    command -v pspg >/dev/null && pager=pspg || pager=more
+    command -v pgcli >/dev/null && client=pgcli || client=psql
+    sudo -u $ADMIN_USER PAGER=$pager $client -U $PG_USER $dbname
 }
 
 _dup_database() {
@@ -166,6 +189,7 @@ main_menu() {
 
         echo -e "new\t- Crear base de datos"
         echo -e "user\t- Crear usuario"
+        echo -e "pass\t- Cambiar contraseña de usuario"
         echo -e "grant\t- Autorizar usuario"
         echo -e "ls\t- Listar bases de datos"
         echo -e "sql\t- Shell SQL"
@@ -184,6 +208,10 @@ main_menu() {
 	        user)
 	        heading "Crear usuario"
 	        new_user
+            ;;
+            pass)
+	        heading "Cambiar contraseña"
+	        change_password
             ;;
             grant)
             heading "Autorizar usuario"

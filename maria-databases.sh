@@ -2,7 +2,7 @@
 
 
 ADMIN_USER=root
-DB_HOST=localhost
+DB_HOST=127.0.0.1
 
 
 ANSI_RESET="\033[0m"
@@ -98,7 +98,9 @@ ls_databases() {
 
 sql_shell() {
     dbname="$1"
-    sudo -u $ADMIN_USER mysql -h $DB_HOST $dbname
+    command -v pspg >/dev/null && pager=pspg || pager=more
+    command -v pgcli >/dev/null && client=mycli || client=mysql
+    sudo -u $ADMIN_USER PAGER=$pager $client -h $DB_HOST $dbname
 }
 
 _dup_database() {
