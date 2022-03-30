@@ -39,10 +39,6 @@ choose_database_and_do() {
         eval "$* $bd"
         return $?
     done
-#    read -p "Opción> " n
-
-#    test "$n" -gt 0 || return 1
-#    bd=$(sudo -u $ADMIN_USER psql -l -A -t|cut -d'|' -f1|head -n $n|tail -n 1)
 }
 
 
@@ -66,19 +62,32 @@ new_database() {
 }
 
 
-new_user() {
-    read -p "Nombre del usuario a crear: " username && test -n "$username" || return -1
+
+ask_password_and_do() {
     read -sp "Contraseña: " password && test -n "$password" || return -1
     echo ""
     read -sp "Repetir contraseña: " repassword && test -n "$repassword" || return -1
     echo ""
     if [ "$password" != "$repassword" ] ; then
-	error "Las contraseñas no coinciden"
-	return -2
+        error "Las contraseñas no coinciden"
+        return -2
     fi
+    eval "$* \"$password\""
+}
+
+_create_user() {
+    username="$1"
+    password="$2"
     echo -e "CREATE USER '$username'@'localhost' IDENTIFIED BY '$password'" |sudo -u $ADMIN_USER mysql -h $DB_HOST && \
         message "Usuario creado" || \
-        error "Error creando usuario"
+        error "Error creando usuario"    
+}
+
+
+new_user() {
+    defaultuser=$(whoami)
+    read -p "Usuario a crear [$defaultuser]: " username && test -n "$username" || username="$defaultuser"
+    ask_password_and_do _create_user "$username"
 }
 
 grant_user() {
@@ -88,6 +97,22 @@ grant_user() {
     echo -e "GRANT ALL PRIVILEGES ON $dbname.* TO '$username'@'localhost'; FLUSH PRIVILEGES;" |sudo -u $ADMIN_USER mysql -h $DB_HOST && \
         message "Privilegios concedidos al usuario $username sobre la base de datos $dbname" || \
         error "Error otorgando privilegios"
+}
+
+
+
+_change_passwd() {
+    username="$1"
+    password="$2"
+    echo -e "ALTER USER '$username'@'localhost' IDENTIFIED BY '$password'; FLUSH PRIVILEGES;" |sudo -u $ADMIN_USER mysql -h $DB_HOST && \
+        message "Contraseña de $username modificada" || \
+        error "Error modificando contraseña"
+}
+
+change_password() {
+    defaultuser=$(whoami)
+    read -p "Usuario a modificar [$defaultuser]: " username && test -n "$username" || username=$defaultuser
+    ask_password_and_do _change_passwd "$username"
 }
 
 
@@ -151,32 +176,9 @@ main_menu() {
 
         echo -e "$ANSI_BOLD\nSelecciona una opción:\n$ANSI_RESET"
 
-#        select c in \
-#        "Crear base de datos" \
-#        "Crear usuario" \
-#        "Autorizar usuario" \
-#        "Listado de bases de datos" \
-#        "Shell SQL" \
-#        "Duplicar base de datos" \
-#        "Volcado SQL de base de datos" \
-#        "Eliminar base de datos" ; do
-#
-#            heading $c
-#            case $REPLY in
-#            1) new_database ;;
-#            2) new_user ;;
-#            3) choose_database_and_do grant_user ;;
-#            4) ls_databases ;;
-#            5) choose_database_and_do sql_shell ;;
-#            6) choose_database_and_do duplicate_database ;;
-#            7) choose_database_and_do dump_database ;;
-#            8) choose_database_and_do restore_database ;;
-#            9) choose_database_and_do remove_database ;;
-#            esac
-#        done
-
         echo -e "new\t- Crear base de datos"
         echo -e "user\t- Crear usuario"
+        echo -e "pass\t- Cambiar contraseña de usuario"
         echo -e "grant\t- Autorizar usuario"
         echo -e "ls\t- Listar bases de datos"
         echo -e "sql\t- Shell SQL"
@@ -195,6 +197,10 @@ main_menu() {
 	        user)
 	        heading "Crear usuario"
 	        new_user
+            ;;
+            pass)
+	        heading "Cambiar contraseña"
+	        change_password
             ;;
             grant)
             heading "Autorizar usuario"

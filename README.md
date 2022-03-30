@@ -1,6 +1,14 @@
 # Scripts de administración de sistemas
 
+## Gestión de bases de datos
 
+### Postgres
+
+Se recomienda instalar `pgcli` y `pspg`.
+
+### MySQL/MariaDB
+
+Se recomienda instalar `mycli` y `pspg`.
 
 ## Scripts de backup
 
