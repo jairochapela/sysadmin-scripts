@@ -22,9 +22,16 @@ VAULT_PASSWD_FILE="$HOME/.ansible/vault_password"
 setup() {
     mkdir -p $DATADIR
     mkdir -p $DATADIR/roles
+    #mkdir -p $DATADIR/playbooks
+    mkdir -p $DATADIR/library_utils
+    mkdir -p $DATADIR/filter_plugins
     mkdir -p $DATADIR/inventories
-    mkdir -p $DATADIR/inventories/host_vars
-    mkdir -p $DATADIR/inventories/group_vars
+    for i in $INVENTORIES; do
+        mkdir -p $DATADIR/inventories/$i
+        mkdir -p $DATADIR/inventories/$i/host_vars
+        mkdir -p $DATADIR/inventories/$i/group_vars
+        touch $DATADIR/inventories/$i/hosts
+    done
 }
 
 
@@ -59,6 +66,13 @@ edit_file() {
     return $?
 }
 
+edit_inventory() {
+    inventory=$1
+    echo $inventory
+    $EDITOR $inventory/hosts
+    return $?
+}
+
 
 edit_vault_file() {
     vaultfile=$1
@@ -73,7 +87,7 @@ choose_inventory_then() {
     PS3="Entorno (0 para cancelar)> "
     select inventory in $INVENTORIES ; do
         [ $REPLY == 0 ] && return
-        $* $DATADIR/inventories/$inventory.ini
+        $* $DATADIR/inventories/$inventory
         [ $? == 0 ] && return
         REPLY=''
     done
@@ -143,22 +157,17 @@ echo -e "
 }
 
 
-edit_inventory() {
-    choose_inventory_then edit_file
-}
-
-
 edit_host_vars() {
     inventory=$1
-    #check_vault_password_file
+    echo $inventory
+    check_vault_password_file
     heading "Selecciona un host"
-    #hosts=$(ansible-inventory --list -i $inventory --vault-password-file $VAULT_PASSWD_FILE|jq -r '.[]|select(has("hosts"))|.[][]')
-    hosts=$(cat $inventory|grep -v '\['|cut -d' ' -f1|sort|uniq)
+    hosts=$(ansible-inventory --list -i $inventory --vault-password-file $VAULT_PASSWD_FILE|jq -r '.[]|select(has("hosts"))|.[][]')
+    #hosts=$(cat $inventory|grep -v '\['|cut -d' ' -f1|sort|uniq)
     PS3="Host (0 para cancelar)> "
     select host in $hosts ; do
         [ $REPLY == 0 ] && return
-        check_vault_password_file
-        edit_vault_file $DATADIR/inventories/host_vars/$host.yml
+        edit_vault_file $inventory/host_vars/$host.yml
     done
 }
 
@@ -179,16 +188,16 @@ remote_shell() {
 
 edit_group_vars() {
     inventory=$1
-    #check_vault_password_file
+    check_vault_password_file
     heading "Selecciona un grupo"
-    #groups=$(ansible-inventory --list -i $inventory --vault-password-file $VAULT_PASSWD_FILE|jq -r '.all.children[]'|grep -v 'ungrouped')
+    groups=$(ansible-inventory --list -i $inventory --vault-password-file $VAULT_PASSWD_FILE|jq -r '.all.children[]'|grep -v 'ungrouped')
     #$(cat $inventory|grep '^\[' |cut -f2 -d'['|cut -f1 -d']')
-    groups=$(cat $inventory|sed -n 's/^[ \t]*\[\(.*\)\].*/\1/p'|sort|uniq)
+    #groups=$(cat $inventory|sed -n 's/^[ \t]*\[\(.*\)\].*/\1/p'|sort|uniq)
     PS3="Grupo (0 para cancelar)> "
     select group in $groups ; do
         [ $REPLY == 0 ] && return
         check_vault_password_file
-        edit_vault_file $DATADIR/inventories/group_vars/$group.yml
+        edit_vault_file $inventory/group_vars/$group.yml
     done
 }
 
@@ -254,7 +263,7 @@ main_menu() {
         n) ask_new_filename_then "Nombre del nuevo playbook: " "$DATADIR/" ".yml" new_playbook ;;
         e) choose_playbook_then edit_file ;;
         k) choose_playbook_then rm -i ;;
-        i) choose_inventory_then edit_file ;;
+        i) choose_inventory_then edit_inventory ;;
         h) choose_inventory_then edit_host_vars ;;
         g) choose_inventory_then edit_group_vars ;;
         s) choose_inventory_then remote_shell ;;
