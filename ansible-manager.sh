@@ -162,6 +162,21 @@ edit_host_vars() {
     done
 }
 
+
+remote_shell() {
+    inventory=$1
+    #check_vault_password_file
+    heading "Selecciona un host"
+    #hosts=$(ansible-inventory --list -i $inventory --vault-password-file $VAULT_PASSWD_FILE|jq -r '.[]|select(has("hosts"))|.[][]')
+    hosts=$(cat $inventory|grep -v '\['|cut -d' ' -f1|sort|uniq)
+    PS3="Host (0 para cancelar)> "
+    select host in $hosts ; do
+        [ $REPLY == 0 ] && return
+        ssh $host
+    done
+}
+
+
 edit_group_vars() {
     inventory=$1
     #check_vault_password_file
@@ -228,7 +243,8 @@ main_menu() {
         echo -e "i\t- Inventario"
         echo -e "h\t- Variables de host"
         echo -e "g\t- Variables de grupo de hosts"
-	echo -e "r\t- Gestionar roles"
+        echo -e "s\t- Shell remota"
+    	echo -e "r\t- Gestionar roles"
         #echo -e "s\t- Copiar clave SSH"
         echo -e "0\t- Salir"
         read -p "Opción> " op
@@ -241,7 +257,8 @@ main_menu() {
         i) choose_inventory_then edit_file ;;
         h) choose_inventory_then edit_host_vars ;;
         g) choose_inventory_then edit_group_vars ;;
-	r) manage_roles ;;
+        s) choose_inventory_then remote_shell ;;
+	    r) manage_roles ;;
         0) return ;;
         *) [ -z "$c" ] && show_message "Por favor, indica un comando." || show_error "Comando no reconocido." ;;
         esac
