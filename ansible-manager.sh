@@ -1,9 +1,6 @@
 #!/bin/bash
 
 
-[ -n "$DATADIR" ] || DATADIR="$HOME/AnsiblePlaybooks"
-[ -n "$EDITOR" ] || EDITOR=vim
-
 
 INVENTORIES="testing staging production"
 
@@ -20,17 +17,17 @@ VAULT_PASSWD_FILE="$HOME/.ansible/vault_password"
 
 
 setup() {
-    mkdir -p $DATADIR
-    mkdir -p $DATADIR/roles
-    #mkdir -p $DATADIR/playbooks
-    mkdir -p $DATADIR/library_utils
-    mkdir -p $DATADIR/filter_plugins
-    mkdir -p $DATADIR/inventories
+    mkdir -p $CMDB_ANSIBLE_PATH
+    mkdir -p $CMDB_ANSIBLE_PATH/roles
+    #mkdir -p $CMDB_ANSIBLE_PATH/playbooks
+    mkdir -p $CMDB_ANSIBLE_PATH/library_utils
+    mkdir -p $CMDB_ANSIBLE_PATH/filter_plugins
+    mkdir -p $CMDB_ANSIBLE_PATH/inventories
     for i in $INVENTORIES; do
-        mkdir -p $DATADIR/inventories/$i
-        mkdir -p $DATADIR/inventories/$i/host_vars
-        mkdir -p $DATADIR/inventories/$i/group_vars
-        touch $DATADIR/inventories/$i/hosts
+        mkdir -p $CMDB_ANSIBLE_PATH/inventories/$i
+        mkdir -p $CMDB_ANSIBLE_PATH/inventories/$i/host_vars
+        mkdir -p $CMDB_ANSIBLE_PATH/inventories/$i/group_vars
+        touch $CMDB_ANSIBLE_PATH/inventories/$i/hosts
     done
 }
 
@@ -87,7 +84,7 @@ choose_inventory_then() {
     PS3="Entorno (0 para cancelar)> "
     select inventory in $INVENTORIES ; do
         [ $REPLY == 0 ] && return
-        $* $DATADIR/inventories/$inventory
+        $* $CMDB_ANSIBLE_PATH/inventories/$inventory
         [ $? == 0 ] && return
         REPLY=''
     done
@@ -96,11 +93,11 @@ choose_inventory_then() {
 
 choose_playbook_then() {
     heading "Selecciona un playbook"
-    playbooks=$(find "$DATADIR/." -maxdepth 1 -path '*.yml'|xargs -I{} basename {}) || return 1
+    playbooks=$(find "$CMDB_ANSIBLE_PATH/." -maxdepth 1 -path '*.yml'|xargs -I{} basename {}) || return 1
     PS3="Playbook (0 para cancelar)> "
     select playbook in $playbooks ; do
         [ $REPLY == 0 ] && return
-        $* "$DATADIR/$playbook"
+        $* "$CMDB_ANSIBLE_PATH/$playbook"
         [ $? == 0 ] && return
     done
 }
@@ -133,7 +130,7 @@ new_playbook() {
     playbookfile="$1"
     read -p "Descripción: " description
     read -p "Grupo de hosts: " grphosts
-    roles=$(find "$DATADIR/roles" -depth 1 -path '*' -type d |xargs basename) || return 1
+    roles=$(find "$CMDB_ANSIBLE_PATH/roles" -depth 1 -path '*' -type d |xargs basename) || return 1
     PS3="Incorporar rol (0 para terminar)> "
     roles_to_add=""
     select role in $roles ; do
@@ -203,7 +200,7 @@ edit_group_vars() {
 
 
 manage_roles() {
-    fname="$DATADIR/roles/requeriments.yml"
+    fname="$CMDB_ANSIBLE_PATH/roles/requeriments.yml"
     [ -f "$fname" ] || echo "
 ## from galaxy
 #- src: yatesr.timezone
@@ -260,7 +257,7 @@ main_menu() {
 
         case $op in
         p) choose_playbook_then choose_inventory_then run_playbook ;;
-        n) ask_new_filename_then "Nombre del nuevo playbook: " "$DATADIR/" ".yml" new_playbook ;;
+        n) ask_new_filename_then "Nombre del nuevo playbook: " "$CMDB_ANSIBLE_PATH/" ".yml" new_playbook ;;
         e) choose_playbook_then edit_file ;;
         k) choose_playbook_then rm -i ;;
         i) choose_inventory_then edit_inventory ;;
@@ -281,9 +278,26 @@ main_menu() {
 }
 
 
+# --- MAIN ---
 
 
-setup
+# [ -n "$CMDB_ANSIBLE_PATH" ] || DATADIR="$HOME/AnsiblePlaybooks"
+
+if [ -z "$CMDB_ANSIBLE_PATH" ] ; then
+    show_error "Variable CMDB_ANSIBLE_PATH no establecida." 
+    exit 1
+fi
+
+
+[ -n "$EDITOR" ] || EDITOR=vim
+
+
+
+if [ ! -d "$CMDB_ANSIBLE_PATH/inventories" ] ; then
+    read -e -p "Crear CMDB? [Y/N]" yn
+    [[ "$yn" == [Yy]* ]] && setup || exit 1
+fi
+
 main_menu
 
 rm -f $VAULT_PASSWD_FILE
