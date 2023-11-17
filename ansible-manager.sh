@@ -237,6 +237,23 @@ manage_roles() {
 }
 
 
+choose_file_then() {
+    heading "Selecciona un fichero"
+    PS3="Fichero (0 para cancelar)> "
+    select file in $CMDB_ANSIBLE_PATH/files/* ; do
+        [ $REPLY == 0 ] && return
+        $* $file
+        [ $? == 0 ] && return
+    done
+}
+
+encrypt_vault_file() {
+    file=$1
+    check_vault_password_file
+    [ -f "$file" ] && ANSIBLE_VAULT_PASSWORD_FILE="$VAULT_PASSWD_FILE" ansible-vault encrypt "$file" || show_error "No es posible cifrar el fichero $file."
+}
+
+
 main_menu() {
     while true ; do
         clear
@@ -251,6 +268,7 @@ main_menu() {
         echo -e "g\t- Variables de grupo de hosts"
         echo -e "s\t- Shell remota"
     	echo -e "r\t- Gestionar roles"
+        echo -e "v\t- Cifrar fichero con Ansible Vault"
         #echo -e "s\t- Copiar clave SSH"
         echo -e "0\t- Salir"
         read -p "Opción> " op
@@ -265,6 +283,7 @@ main_menu() {
         g) choose_inventory_then edit_group_vars ;;
         s) choose_inventory_then remote_shell ;;
 	    r) manage_roles ;;
+        v) choose_file_then encrypt_vault_file ;;
         0) return ;;
         *) [ -z "$c" ] && show_message "Por favor, indica un comando." || show_error "Comando no reconocido." ;;
         esac
