@@ -1,8 +1,8 @@
 #!/bin/bash
 
 
-ADMIN_USER=root
-DB_HOST=127.0.0.1
+# ADMIN_USER=root
+# DB_HOST=localhost
 
 
 ANSI_RESET="\033[0m"
@@ -32,9 +32,34 @@ error() {
 }
 
 
+edit() {
+    editor=${EDITOR:-vi}
+    $editor $1
+}
+
+
+check_client_config() {
+    if test ! -f "$HOME/.my.cnf" ; then
+        error "No se encontró el fichero de configuración de MySQL/MariaDB"
+        read -p "¿Deseas crearlo ahora? [s/N] " c
+        [[ "$c" == [YySs]* ]] || return 1
+        touch "$HOME/.my.cnf"
+        cat <<__EOF__ > "$HOME/.my.cnf"
+[client]
+user=johndoe
+host=localhost
+password=aaa
+__EOF__
+        edit ~/.my.cnf
+        return 1
+    fi
+    return 0
+}
+
+
 choose_database_and_do() {
     echo -e $ANSI_BOLD "Seleccionar base de datos (0 para cancelar):" $ANSI_RESET
-    select bd in $(echo "SHOW DATABASES" |sudo -u $ADMIN_USER mysql -r -B -s -h $DB_HOST) ; do
+    select bd in $(echo "SHOW DATABASES" |mysql -r -B -s) ; do
         test -n "$bd" || return 2
         eval "$* $bd"
         return $?
@@ -51,7 +76,7 @@ ask_new_database_name_and_do() {
 _create_database() {
     newdbname="$1"
     echo "Creando base de datos $newdbname..."
-    echo "CREATE DATABASE $newdbname;" |sudo -u $ADMIN_USER mysql -h $DB_HOST && \
+    echo "CREATE DATABASE $newdbname;" |mysql && \
         message "Base de datos $newdbname creada con éxito" || \
         error "Error creando la base de datos $newdbname"
 }
@@ -78,7 +103,7 @@ ask_password_and_do() {
 _create_user() {
     username="$1"
     password="$2"
-    echo -e "CREATE USER '$username'@'localhost' IDENTIFIED BY '$password'" |sudo -u $ADMIN_USER mysql -h $DB_HOST && \
+    echo -e "CREATE USER '$username'@'localhost' IDENTIFIED BY '$password'" |mysql && \
         message "Usuario creado" || \
         error "Error creando usuario"    
 }
@@ -94,7 +119,7 @@ grant_user() {
     dbname="$1"
     defaultuser=$(whoami)
     read -p "Usuario a autorizar [$defaultuser]: " username && test -n "$username" || username=$defaultuser
-    echo -e "GRANT ALL PRIVILEGES ON $dbname.* TO '$username'@'localhost'; FLUSH PRIVILEGES;" |sudo -u $ADMIN_USER mysql -h $DB_HOST && \
+    echo -e "GRANT ALL PRIVILEGES ON $dbname.* TO '$username'@'localhost'; FLUSH PRIVILEGES;" |mysql && \
         message "Privilegios concedidos al usuario $username sobre la base de datos $dbname" || \
         error "Error otorgando privilegios"
 }
@@ -104,7 +129,7 @@ grant_user() {
 _change_passwd() {
     username="$1"
     password="$2"
-    echo -e "ALTER USER '$username'@'localhost' IDENTIFIED BY '$password'; FLUSH PRIVILEGES;" |sudo -u $ADMIN_USER mysql -h $DB_HOST && \
+    echo -e "ALTER USER '$username'@'localhost' IDENTIFIED BY '$password'; FLUSH PRIVILEGES;" |mysql && \
         message "Contraseña de $username modificada" || \
         error "Error modificando contraseña"
 }
@@ -117,22 +142,22 @@ change_password() {
 
 
 ls_databases() {
-    sudo -u $ADMIN_USER mysqlshow -h $DB_HOST|more
+    mysqlshow|more
 }
 
 
 sql_shell() {
     dbname="$1"
     command -v pspg >/dev/null && pager=pspg || pager=more
-    command -v pgcli >/dev/null && client=mycli || client=mysql
-    sudo -u $ADMIN_USER PAGER=$pager $client -h $DB_HOST $dbname
+    command -v mycli >/dev/null && client=mycli || client=mysql
+    PAGER=$pager $client $dbname
 }
 
 _dup_database() {
     dbname="$1"
     newdbname="$2"
     _create_database "$newdbname" && \
-        (sudo -u $ADMIN_USER mysqldump "$dbname" | sudo -u $ADMIN_USER mysql "$newdbname") && \
+        (mysqldump "$dbname" |mysql "$newdbname") && \
         message "Base de datos $dbname duplicada en $newdbname"
 }
 
@@ -146,7 +171,7 @@ dump_database() {
     dbname="$1"
     defaultfname="${dbname}_`date +%Y-%m-%d_%H%M`.sql"
     read -p "Nombre del fichero de salida [$defaultfname]: " sqlfile && test -n "$sqlfile" || sqlfile="$defaultfname"
-    sudo mysqldump -h $DB_HOST $dbname > $sqlfile && \
+    mysqldump $dbname > $sqlfile && \
         message "Base de datos $dbname volcada en $sqlfile" && stat $sqlfile || \
         error "Error volcando la base de datos $dbname"
 }
@@ -156,7 +181,7 @@ restore_database() {
     dbname="$1"
     read -e -p "Nombre del fichero de entrada: " sqlfile
     test -f "$sqlfile" || error "No existe ese fichero"
-    sudo -u $ADMIN_USER mysql -h $DB_HOST "$dbname" < "$sqlfile" && \
+    mysql "$dbname" < "$sqlfile" && \
         message "Base de datos $dbname restaurada a partir de $sqlfile" || \
         error "No se pudo restaurar la base de datos $dbname"
 }
@@ -165,7 +190,7 @@ remove_database() {
     dbname="$1"
     message "Se va a eliminar la base de datos $dbname. ¿Estás completamente seguro?"
     read -p "Escribe $dbname para confirmar la operación: " confirm && test "$dbname" = "$confirm" || return 1
-    echo "DROP DATABASE $dbname" |sudo -u $ADMIN_USER mysql -h $DB_HOST && \
+    echo "DROP DATABASE $dbname" |mysql && \
         message "Base de datos $dbname eliminada con éxito" || \
         error "Error eliminando la base de datos $dbname"
 }
@@ -176,59 +201,64 @@ main_menu() {
 
         echo -e "$ANSI_BOLD\nSelecciona una opción:\n$ANSI_RESET"
 
-        echo -e "new\t- Crear base de datos"
-        echo -e "user\t- Crear usuario"
-        echo -e "pass\t- Cambiar contraseña de usuario"
-        echo -e "grant\t- Autorizar usuario"
-        echo -e "ls\t- Listar bases de datos"
-        echo -e "sql\t- Shell SQL"
-        echo -e "dup\t- Duplicar base de datos"
-        echo -e "bk\t- Volcado SQL de base de datos"
-        echo -e "rm\t- Eliminar base de datos"
-        echo -e "rst\t- Restaurar base de datos"
+        echo -e "n\t- Crear base de datos"
+        echo -e "u\t- Crear usuario"
+        echo -e "p\t- Cambiar contraseña de usuario"
+        echo -e "g\t- Autorizar usuario"
+        echo -e "l\t- Listar bases de datos"
+        echo -e "s\t- Shell SQL"
+        echo -e "d\t- Duplicar base de datos"
+        echo -e "b\t- Volcado SQL de base de datos"
+        echo -e "e\t- Eliminar base de datos"
+        echo -e "r\t- Restaurar base de datos"
+        echo -e "c\t- Configuración"
         echo -e "q\t- Salir"
 
         read -p "Comando> " c
         case "$c" in
-            new)
+            n)
             heading "Crear base de datos"
             new_database
             ;;
-	        user)
+	        u)
 	        heading "Crear usuario"
 	        new_user
             ;;
-            pass)
+            p)
 	        heading "Cambiar contraseña"
 	        change_password
             ;;
-            grant)
+            g)
             heading "Autorizar usuario"
             choose_database_and_do grant_user
             ;;
-	        ls)
+	        l)
 	        heading "Bases de datos"
 	        ls_databases
 	        ;;
-            sql)
+            s)
             heading "Shell SQL"
             choose_database_and_do sql_shell
             ;;
-            dup)
+            d)
             heading "Duplicar base de datos"
             choose_database_and_do duplicate_database
             ;;
-            bk)
+            b)
             heading "Volcado de base de datos"
             choose_database_and_do dump_database
             ;;
-	        rst)
+	        r)
 	        heading "Restaurar base de datos"
 	        choose_database_and_do restore_database
             ;;
-            rm)
+            e)
             heading "Eliminar base de datos"
             choose_database_and_do remove_database
+            ;;
+            c)
+            heading "Configuracion"
+            check_client_config && edit "$HOME/.my.cnf"
             ;;
             q)
             message "Bye!"
@@ -246,4 +276,5 @@ main_menu() {
 }
 
 sudo -u $ADMIN_USER true
+check_client_config
 main_menu 
